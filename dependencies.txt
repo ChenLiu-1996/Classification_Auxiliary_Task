@@ -1,0 +1,9 @@
+# Please check https://pytorch.org/get-started/locally/ for advice and modify based on your cuda version.
+conda create -n auxiliary python=3.9 pytorch numpy matplotlib torchvision cudatoolkit=11 tqdm simplejson -c pytorch -c nvidia -c anaconda -c conda-forge
+
+conda activate auxiliary
+
+which pip # to verify it is using the pip inside the conda environment
+
+pip install cleverhans
+pip install absl-py easydict
