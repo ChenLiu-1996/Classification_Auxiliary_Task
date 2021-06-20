@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-# This decoder has no skip connection, no residual or attention, etc.
 # The point of the current architecture of this decoder is that it can be used in 
 # multiple different classification networks without relying on their achitectures.
 class Decoder(nn.Module):
@@ -30,12 +29,12 @@ class Decoder(nn.Module):
         for layer_idx in range(self.num_deconv):
             if layer_idx < self.num_deconv - 1:
                 setattr(self, "deconv_" + str(layer_idx), \
-                    nn.ConvTranspose2d(hidden_channel // 4**layer_idx, hidden_channel // 4**(layer_idx + 1), \
+                    nn.ConvTranspose2d(hidden_channel, hidden_channel, \
                     kernel_size=3, stride=2, padding=1, output_padding=1)
                 )
             else:
                 setattr(self, "deconv_" + str(layer_idx), \
-                    nn.ConvTranspose2d(hidden_channel // 4**layer_idx, decoded_channel, \
+                    nn.ConvTranspose2d(hidden_channel, decoded_channel, \
                     kernel_size=3, stride=2, padding=1, output_padding=1)
                 )
 

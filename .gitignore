@@ -1,1 +1,2 @@
-./data
+./data/*
+./saved/saved_weights/*

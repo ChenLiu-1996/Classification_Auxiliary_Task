@@ -13,34 +13,36 @@ class Consts:
 
         self.DATASET = "cifar-10"
         self.NUM_CLASSES = 10
+        self.TEST_REPS = 3
 
         # self.MODEL = "VGG11" # VGG has too many maxpool layers. Don't use it on Cifar-10!
-        self.MODEL = "ResNet18"
+        # self.MODEL = "ResNet18"
         # self.MODEL = "ResNeXt29_2x64d"
         # self.MODEL = "PreActResNet18"
         # self.MODEL = "GoogLeNet"
-        # self.MODEL = "EfficientNetB0"
+        self.MODEL = "EfficientNetB0"
         # self.MODEL = "MobileNetV2"
         # self.MODEL = "ShuffleNetV2"
 
-        self.ADV_TRAIN = False   # Avdersarial training or not
+        self.ADV_TRAIN = False
+        # self.ADV_TRAIN = True
         self.EPS = 0.3          # Total epsilon for FGM and PGD attacks.
 
         self.RANDOM_SEED = 0
         self.BATCH_SIZE = 128
         self.NUM_WORKERS = 2
         self.NUM_EPOCHS = 200
-        self.LEARNING_RATE = 1e-3
+        self.LEARNING_RATE = 1e-1
 
         # self.OPTIMIZER = "Adam"
         self.OPTIMIZER = "SGD"
         self.MOMENTUM = 0.9
         self.WEIGHT_DECAY = 4e-5
 
+        self.AUXILIARY_TYPE = None
         # self.AUXILIARY_TYPE = "Recon"
-        self.AUXILIARY_TYPE = "Fourier"
-        # self.AUXILIARY_TYPE = None
-        self.AUXILIARY_WEIGHT = 0.005
+        # self.AUXILIARY_TYPE = "Fourier"
+        self.AUXILIARY_WEIGHT = 0.01
 
 class ClassEncoder(JSONEncoder):
     def default(self, o):

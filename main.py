@@ -117,35 +117,44 @@ def test(net, test_loader, consts: Consts):
     net.eval()
     net.inference_mode()
 
-    report = EasyDict(nb_test=0, correct=0, correct_fgm=0, correct_pgd=0)
-    for x, y in tqdm(test_loader):
-        x, y = x.to(consts.DEVICE), y.to(consts.DEVICE)
-        x_fgm = fast_gradient_method(net, x, consts.EPS, np.inf)
-        x_pgd = projected_gradient_descent(net, x, consts.EPS, 0.01, 40, np.inf)
+    accuracies = {'clean': [], 'fgm': [], 'pgd': []}
 
-        _, y_pred = net(x).max(1)  # model prediction on clean examples
-        _, y_pred_fgm = net(x_fgm).max(1)  # model prediction on FGM adversarial examples
-        _, y_pred_pgd = net(x_pgd).max(1)  # model prediction on PGD adversarial examples
-        report.nb_test += y.size(0)
-        report.correct += y_pred.eq(y).sum().item()
-        report.correct_fgm += y_pred_fgm.eq(y).sum().item()
-        report.correct_pgd += y_pred_pgd.eq(y).sum().item()
+    for rep in range(consts.TEST_REPS):
+        report = EasyDict(nb_test=0, correct=0, correct_fgm=0, correct_pgd=0)
+        tqdm.write("repetition: {}/{}".format(rep + 1, consts.TEST_REPS))
+        for x, y in tqdm(test_loader):
+            x, y = x.to(consts.DEVICE), y.to(consts.DEVICE)
+            x_fgm = fast_gradient_method(net, x, consts.EPS, np.inf)
+            x_pgd = projected_gradient_descent(net, x, consts.EPS, 0.01, 40, np.inf)
 
-    accuracies = []
-    accuracies.append("test acc on clean examples: {:.3f}%".format(
-            report.correct / report.nb_test * 100.0
+            _, y_pred = net(x).max(1)  # model prediction on clean examples
+            _, y_pred_fgm = net(x_fgm).max(1)  # model prediction on FGM adversarial examples
+            _, y_pred_pgd = net(x_pgd).max(1)  # model prediction on PGD adversarial examples
+
+            report.nb_test += y.size(0)                          # This should be identical over repetitions
+            report.correct += y_pred.eq(y).sum().item()          # This should be identical over repetitions
+            report.correct_fgm += y_pred_fgm.eq(y).sum().item()  # This shall change over repetitions
+            report.correct_pgd += y_pred_pgd.eq(y).sum().item()  # This shall change over repetitions
+
+        accuracies['clean'] += [report.correct / report.nb_test * 100.0]
+        accuracies['fgm'] += [report.correct_fgm / report.nb_test * 100.0]
+        accuracies['pgd'] += [report.correct_pgd / report.nb_test * 100.0]
+    
+    acc_text = []
+    acc_text.append("test acc on clean examples: {:.3f}\u00B1{:.3f}%".format(
+            np.mean(accuracies['clean']), np.std(accuracies['clean'])
         ))
-    accuracies.append("test acc on FGM adversarial examples: {:.3f}%".format(
-            report.correct_fgm / report.nb_test * 100.0
+    acc_text.append("test acc on FGM adversarial examples: {:.3f}\u00B1{:.3f}%".format(
+            np.mean(accuracies['fgm']), np.std(accuracies['fgm'])
         ))
-    accuracies.append("test acc on PGD adversarial examples: {:.3f}%".format(
-            report.correct_pgd / report.nb_test * 100.0
+    acc_text.append("test acc on PGD adversarial examples: {:.3f}\u00B1{:.3f}%".format(
+            np.mean(accuracies['pgd']), np.std(accuracies['pgd'])
         ))
     
-    for acc in accuracies:
+    for acc in acc_text:
         print(acc)
 
-    return accuracies
+    return acc_text
 
 def main(_):
     consts = Consts()
@@ -198,9 +207,8 @@ def main(_):
     elif consts.OPTIMIZER == "Adam":
         optimizer = torch.optim.Adam(net.parameters(), lr=consts.LEARNING_RATE)
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, verbose=True, patience=2)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250], gamma=0.1)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.2, verbose=True, patience=5)
 
     early_stopping = EarlyStopping(criterion_name='Validation Accuracy', mode='max',
                                    patience=10, verbose=True,
@@ -216,8 +224,8 @@ def main(_):
         train(net, optimizer, data.train, epoch, consts, grayscale_converter)
         validation_acc = validate(net, data.validation, epoch, consts, grayscale_converter)
 
-        # scheduler.step(validation_acc)
-        scheduler.step()
+        # scheduler.step()
+        scheduler.step(validation_acc)
         early_stopping(validation_acc, net)
         
         if early_stopping.early_stop:
