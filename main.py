@@ -17,7 +17,6 @@ from utils.early_stopping import EarlyStopping
 from networks.vgg import VGG
 from networks.resnet import ResNet18
 from networks.resnext import ResNeXt29_2x64d
-from networks.preact_resnet import PreActResNet18
 from networks.googlenet import GoogLeNet
 from networks.efficientnet import EfficientNetB0
 from networks.mobilenetv2 import MobileNetV2
@@ -75,41 +74,48 @@ def validate(net, validation_loader, epoch, consts: Consts, grayscale_converter)
     """ Validate model """
     net.eval()
 
-    with torch.no_grad():
-        validation_loss = 0.0
-        num_correct, num_total = 0, 0
+    # Cannot simply use `with torch.no_grad():` here because adversarial generation requires gradient?
+    validation_loss = 0.0
+    num_correct, num_total = 0, 0
 
-        for x, y in tqdm(validation_loader):
-            x, y = x.to(consts.DEVICE), y.to(consts.DEVICE)
-            output_cls, output_aux = net(x)
-            if consts.AUXILIARY_TYPE == "Recon":
-                loss = net.loss(output_cls, y, output_aux, x, consts.AUXILIARY_TYPE, consts.AUXILIARY_WEIGHT)
-            elif consts.AUXILIARY_TYPE == "Fourier":
-                x_gray = grayscale_converter(x)
-                x_fourier_complex = torch.fft.fftshift(torch.fft.fft2(x_gray))
-                x_fourier_mag = torch.abs(x_fourier_complex)
-                x_fourier_ph = torch.angle(x_fourier_complex)
-                x_fourier = torch.cat((x_fourier_mag, x_fourier_ph), dim=1)
-                loss = net.loss(output_cls, y, output_aux, x_fourier, consts.AUXILIARY_TYPE, consts.AUXILIARY_WEIGHT)
-            else:
-                loss = net.loss(output_cls, y, None, None, consts.AUXILIARY_TYPE, None)
+    for x, y in tqdm(validation_loader):
+        x, y = x.to(consts.DEVICE), y.to(consts.DEVICE)
+        if consts.ADV_TRAIN:
+            net.inference_mode()
+            x = fast_gradient_method(net, x, consts.EPS, np.inf)
+        net.non_inference_mode()
 
-            validation_loss += loss.item()
-            
-            _, y_pred = output_cls.max(1)  # model prediction on clean examples
-            num_correct += y_pred.eq(y).sum().item()
-            num_total += y.size(0)
+        output_cls, output_aux = net(x)
+        if consts.AUXILIARY_TYPE == "Recon":
+            loss = net.loss(output_cls, y, output_aux, x, consts.AUXILIARY_TYPE, consts.AUXILIARY_WEIGHT)
+        elif consts.AUXILIARY_TYPE == "Fourier":
+            x_gray = grayscale_converter(x)
+            x_fourier_complex = torch.fft.fftshift(torch.fft.fft2(x_gray))
+            x_fourier_mag = torch.abs(x_fourier_complex)
+            x_fourier_ph = torch.angle(x_fourier_complex)
+            x_fourier = torch.cat((x_fourier_mag, x_fourier_ph), dim=1)
+            loss = net.loss(output_cls, y, output_aux, x_fourier, consts.AUXILIARY_TYPE, consts.AUXILIARY_WEIGHT)
+        else:
+            loss = net.loss(output_cls, y, None, None, consts.AUXILIARY_TYPE, None)
+
+        validation_loss += loss.item()
         
-        validation_acc = num_correct / num_total
-        validation_loss_norm = validation_loss / num_total
+        _, y_pred = output_cls.max(1)  # model prediction on clean examples
+        num_correct += y_pred.eq(y).sum().item()
+        num_total += y.size(0)
+    
+    validation_acc = num_correct / num_total
+    validation_loss_norm = validation_loss / num_total
 
-        tqdm.write(
-            "epoch: {}/{}, validation loss: {:.3f}, validation acc (clean data): {:.2f}%".format(
-                epoch, consts.NUM_EPOCHS, validation_loss_norm, validation_acc * 100.0
-            )
+    tqdm.write(
+        "epoch: {}/{}, validation loss: {:.3f}, validation acc ({}): {:.2f}%".format(
+            epoch, consts.NUM_EPOCHS, validation_loss_norm, \
+            "adversarial data" if consts.ADV_TRAIN else "clean data", \
+            validation_acc * 100.0
         )
+    )
 
-        return validation_acc
+    return validation_acc
 
 def test(net, test_loader, consts: Consts):
     """ Evaluate on clean and adversarial data """
@@ -187,8 +193,6 @@ def main(_):
         net = ResNet18(img_dim=data.img_dim, decoded_channel=decoded_channel, num_classes=consts.NUM_CLASSES)
     elif consts.MODEL == "ResNeXt29_2x64d":
         net = ResNeXt29_2x64d(img_dim=data.img_dim, decoded_channel=decoded_channel, num_classes=consts.NUM_CLASSES)
-    elif consts.MODEL == "PreActResNet18":
-        net = PreActResNet18(img_dim=data.img_dim, decoded_channel=decoded_channel, num_classes=consts.NUM_CLASSES)
     elif consts.MODEL == "GoogLeNet":
         net = GoogLeNet(img_dim=data.img_dim, decoded_channel=decoded_channel, num_classes=consts.NUM_CLASSES)
     elif consts.MODEL == "EfficientNetB0":

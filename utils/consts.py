@@ -16,11 +16,10 @@ class Consts:
         self.TEST_REPS = 3
 
         # self.MODEL = "VGG11" # VGG has too many maxpool layers. Don't use it on Cifar-10!
-        # self.MODEL = "ResNet18"
+        self.MODEL = "ResNet18"
         # self.MODEL = "ResNeXt29_2x64d"
-        # self.MODEL = "PreActResNet18"
         # self.MODEL = "GoogLeNet"
-        self.MODEL = "EfficientNetB0"
+        # self.MODEL = "EfficientNetB0"
         # self.MODEL = "MobileNetV2"
         # self.MODEL = "ShuffleNetV2"
 
@@ -39,9 +38,9 @@ class Consts:
         self.MOMENTUM = 0.9
         self.WEIGHT_DECAY = 4e-5
 
-        self.AUXILIARY_TYPE = None
+        # self.AUXILIARY_TYPE = None
         # self.AUXILIARY_TYPE = "Recon"
-        # self.AUXILIARY_TYPE = "Fourier"
+        self.AUXILIARY_TYPE = "Fourier"
         self.AUXILIARY_WEIGHT = 0.01
 
 class ClassEncoder(JSONEncoder):
