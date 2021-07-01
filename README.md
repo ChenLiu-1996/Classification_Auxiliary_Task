@@ -19,4 +19,4 @@ The preliminary work has been submitted to ArXiv. ["Fourier Transform Approximat
 ```
 
 ### Environment Setup
-We used anaconda environment. The step-by-step instructions are written in requirements.txt.
+We used anaconda environment. The step-by-step instructions are written in dependencies.txt.
